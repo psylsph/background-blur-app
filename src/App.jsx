@@ -10,6 +10,45 @@ function ImageProcessor() {
   const [model, setModel] = useState(null)
   const canvasRef = useRef(null)
   const [blurAmount, setBlurAmount] = useState(10)
+  const [dragActive, setDragActive] = useState(false)
+
+  const handleDrag = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true)
+    } else if (e.type === "dragleave") {
+      setDragActive(false)
+    }
+  }
+
+  const handleDrop = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setDragActive(false)
+
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const file = e.dataTransfer.files[0]
+      if (file.type.startsWith('image/')) {
+        setSelectedFile(file)
+        setProcessedImage(null)
+      } else {
+        alert('Please upload an image file')
+      }
+    }
+  }
+
+  const handleFileChange = (event) => {
+    const file = event.target.files[0]
+    if (file) {
+      if (file.type.startsWith('image/')) {
+        setSelectedFile(file)
+        setProcessedImage(null)
+      } else {
+        alert('Please upload an image file')
+      }
+    }
+  }
 
   // Load BodyPix model on component mount
   useEffect(() => {
@@ -28,14 +67,6 @@ function ImageProcessor() {
     }
     loadModel();
   }, []);
-
-  const handleFileChange = (event) => {
-    const file = event.target.files[0]
-    if (file) {
-      setSelectedFile(file)
-      setProcessedImage(null)
-    }
-  }
 
   const processImage = async () => {
     if (!selectedFile || !model) {
@@ -109,18 +140,49 @@ function ImageProcessor() {
     }
   }
 
+  const handleImageClick = () => {
+    if (processedImage) {
+      // Create a temporary link element
+      const link = document.createElement('a')
+      link.href = processedImage
+      link.download = `blurred_${selectedFile.name}`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+    }
+  }
+
   return (
     <div className="container">
       <h1>Image Background Blur</h1>
       <div className="upload-section">
-        <input
-          type="file"
-          accept="image/*"
-          onChange={handleFileChange}
-          className="file-input"
-        />
+        <div 
+          className={`file-drop-zone ${dragActive ? 'drag-active' : ''}`}
+          onDragEnter={handleDrag}
+          onDragLeave={handleDrag}
+          onDragOver={handleDrag}
+          onDrop={handleDrop}
+        >
+          <input
+            type="file"
+            accept="image/*"
+            onChange={handleFileChange}
+            className="file-input"
+            title="Choose an image"
+          />
+          <div className="drop-zone-content">
+            <svg className="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="17 8 12 3 7 8" />
+              <line x1="12" y1="3" x2="12" y2="15" />
+            </svg>
+            <p className="drop-text">
+              Drag and drop an image here, or click to select
+            </p>
+          </div>
+        </div>
         <div className="blur-control">
-          <label>Blur Amount:</label>
+          <label>Blur Intensity:</label>
           <input
             type="range"
             min="1"
@@ -148,22 +210,17 @@ function ImageProcessor() {
       <div className="images-container">
         {selectedFile && (
           <div className="image-box">
-            <h3>Original Image</h3>
+            <h3>{processedImage ? 'Processed Image' : 'Original Image'}</h3>
             <img
-              src={URL.createObjectURL(selectedFile)}
-              alt="Original"
-              className="preview-image"
+              src={processedImage || URL.createObjectURL(selectedFile)}
+              alt={processedImage ? 'Processed' : 'Original'}
+              className={`preview-image ${processedImage ? 'processed clickable' : ''}`}
+              onClick={handleImageClick}
+              title={processedImage ? 'Click to download' : ''}
             />
-          </div>
-        )}
-        {processedImage && (
-          <div className="image-box">
-            <h3>Processed Image</h3>
-            <img
-              src={processedImage}
-              alt="Processed"
-              className="preview-image"
-            />
+            {processedImage && (
+              <p className="download-hint">Click image to download</p>
+            )}
           </div>
         )}
       </div>
